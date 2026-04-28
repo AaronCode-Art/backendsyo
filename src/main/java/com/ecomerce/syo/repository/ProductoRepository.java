@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,4 +26,16 @@ public interface ProductoRepository extends JpaRepository<Producto, UUID> {
      * Este método es clave para tu frontend cuando el usuario selecciona una categoría
      */
     Page<Producto> findByCategoria_Idcategoria(UUID categoriaId, Pageable pageable);
+
+    // Filtro avanzado (este es el que usarás en la página de productos)
+    @Query("SELECT p FROM Producto p " +
+           "WHERE (:categoriaId IS NULL OR p.categoria.idcategoria = :categoriaId) " +
+           "AND (:precioMin IS NULL OR p.preciodesct >= :precioMin) " +
+           "AND (:precioMax IS NULL OR p.preciodesct <= :precioMax)")
+    Page<Producto> buscarConFiltros(
+        @Param("categoriaId") UUID categoriaId,
+        @Param("precioMin") BigDecimal precioMin,
+        @Param("precioMax") BigDecimal precioMax,
+        Pageable pageable
+    );
 }

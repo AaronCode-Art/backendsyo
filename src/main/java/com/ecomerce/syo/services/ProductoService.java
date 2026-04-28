@@ -5,6 +5,7 @@ import com.ecomerce.syo.dto.producto.ProductoListaDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public interface ProductoService {
@@ -23,4 +24,9 @@ public interface ProductoService {
      * Devuelve los productos de una categoría específica (el más importante para tu frontend)
      */
     Page<ProductoListaDTO> listarPorCategoria(UUID categoriaId, Pageable pageable);
+    /**
+     * Nuevo método con filtros avanzados
+     * Se usa en la página de productos con filtros de categoría y rango de precio
+     */
+    Page<ProductoListaDTO> buscarConFiltros( UUID categoriaId, BigDecimal precioMin, BigDecimal precioMax, Pageable pageable );
 }

@@ -11,6 +11,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @RestController
@@ -21,12 +22,18 @@ public class ProductoController {
     private final ProductoService productoService;
 
     // Lista todos los productos (paginado)
-    @GetMapping
-    public ResponseEntity<Page<ProductoListaDTO>> listarTodos(
+   @GetMapping
+    public ResponseEntity<Page<ProductoListaDTO>> listarProductos(
+            @RequestParam(required = false) UUID categoriaId,
+            @RequestParam(required = false) BigDecimal precioMin,
+            @RequestParam(required = false) BigDecimal precioMax,
             @PageableDefault(size = 20, sort = "nombre") Pageable pageable) {
-        return ResponseEntity.ok(productoService.listarTodos(pageable));
-    }
 
+        Page<ProductoListaDTO> productos = productoService.buscarConFiltros(
+                categoriaId, precioMin, precioMax, pageable);
+
+        return ResponseEntity.ok(productos);
+    }
     // Detalle completo de un producto
     @GetMapping("/detalle/{id}")
     public ResponseEntity<ProductoDetalleDTO> obtenerDetalle(@PathVariable UUID id) {
@@ -40,4 +47,5 @@ public class ProductoController {
             @PageableDefault(size = 20, sort = "nombre") Pageable pageable) {
         return ResponseEntity.ok(productoService.listarPorCategoria(id, pageable));
     }
+
 }

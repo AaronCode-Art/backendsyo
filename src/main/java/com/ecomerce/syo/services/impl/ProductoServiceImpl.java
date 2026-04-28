@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -28,8 +29,7 @@ public class ProductoServiceImpl implements ProductoService {
     @Override
     public ProductoDetalleDTO obtenerDetalle(UUID id) {
         Producto producto = productoRepository.findByIdWithCategoria(id)
-                .orElseThrow(() -> 
-                    new ResourceNotFoundException("Producto no encontrado con id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + id));
 
         return mapToDetalleDTO(producto);
     }
@@ -75,5 +75,12 @@ public class ProductoServiceImpl implements ProductoService {
                 .imgurl(p.getImgurl())
                 .categoriaNombre(p.getCategoria() != null ? p.getCategoria().getNombre() : null)
                 .build();
+    }
+
+    @Override
+    public Page<ProductoListaDTO> buscarConFiltros(UUID categoriaId, BigDecimal precioMin, BigDecimal precioMax,
+            Pageable pageable) {
+        return productoRepository.buscarConFiltros(categoriaId, precioMin, precioMax, pageable)
+                .map(this::mapToListaDTO);
     }
 }
