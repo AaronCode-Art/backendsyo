@@ -1,32 +1,24 @@
 package com.ecomerce.syo.services;
 
+import com.ecomerce.syo.dto.carrito.AgregarCarritoDTO;
+import com.ecomerce.syo.dto.carrito.ActualizarItemDTO;
 import com.ecomerce.syo.dto.carrito.CarritoResponseDTO;
+
 import java.util.UUID;
 
+/**
+ * CarritoService - Operaciones del carrito de compras.
+ *
+ * obtenerCarrito   → devuelve el carrito del cliente (o uno vacío si no tiene)
+ * agregarProducto  → agrega producto o suma cantidad si ya existe (upsert)
+ * actualizarItem   → cambia la cantidad de un item (si cantidad=0 lo elimina)
+ * eliminarItem     → elimina un item por su id
+ * vaciar           → elimina todos los items del carrito
+ */
 public interface CarritoService {
-
-    /**
-     * Agrega un producto al carrito (o aumenta cantidad si ya existe)
-     */
-    CarritoResponseDTO agregarProducto(UUID clienteId, UUID productoId, Integer cantidad);
-
-    /**
-     * Cambia la cantidad de un producto en el carrito
-     */
-    CarritoResponseDTO cambiarCantidad(UUID clienteId, UUID productoId, Integer nuevaCantidad);
-
-    /**
-     * Elimina un producto del carrito
-     */
-    CarritoResponseDTO eliminarProducto(UUID clienteId, UUID productoId);
-
-    /**
-     * Obtiene el carrito completo del cliente
-     */
-    CarritoResponseDTO obtenerCarrito(UUID clienteId);
-
-    /**
-     * Vacía todo el carrito
-     */
-    void vaciarCarrito(UUID clienteId);
+    CarritoResponseDTO obtenerCarrito(String correoAutenticado);
+    CarritoResponseDTO agregarProducto(AgregarCarritoDTO dto, String correoAutenticado);
+    CarritoResponseDTO actualizarItem(UUID itemid, ActualizarItemDTO dto, String correoAutenticado);
+    CarritoResponseDTO eliminarItem(UUID itemid, String correoAutenticado);
+    void vaciar(String correoAutenticado);
 }

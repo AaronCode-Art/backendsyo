@@ -1,21 +1,15 @@
 package com.ecomerce.syo.services.impl;
 
-import com.ecomerce.syo.dto.carrito.CarritoItemDTO;
-import com.ecomerce.syo.dto.carrito.CarritoResponseDTO;
-import com.ecomerce.syo.model.Carrito;
-import com.ecomerce.syo.model.CarritoDetalle;
-import com.ecomerce.syo.model.Cliente;
-import com.ecomerce.syo.model.Producto;
-import com.ecomerce.syo.repository.CarritoRepository;
-import com.ecomerce.syo.repository.ClienteRepository;
-import com.ecomerce.syo.repository.ProductoRepository;
+import com.ecomerce.syo.dto.carrito.*;
+import com.ecomerce.syo.execption.ResourceNotFoundException;
+import com.ecomerce.syo.model.*;
+import com.ecomerce.syo.repository.*;
 import com.ecomerce.syo.services.CarritoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -24,139 +18,177 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CarritoServiceImpl implements CarritoService {
 
-        private final CarritoRepository carritoRepository;
-        private final ClienteRepository clienteRepository;
-        private final ProductoRepository productoRepository;
+    private final CarritoRepository       carritoRepository;
+    private final CarritoItemRepository   carritoItemRepository;
+    private final ClienteRepository       clienteRepository;
+    private final ProductoRepository      productoRepository;
 
-        @Override
-        @Transactional
-        public CarritoResponseDTO agregarProducto(UUID clienteId, UUID productoId, Integer cantidad) {
-                // Buscar o crear carrito del cliente
-                Carrito carrito = carritoRepository.findByClienteIdWithItems(clienteId)
-                                .orElseGet(() -> {
+    // ── 1. OBTENER CARRITO ────────────────────────────────────────────────────
+    @Override
+    @Transactional(readOnly = true)
+    public CarritoResponseDTO obtenerCarrito(String correoAutenticado) {
+        Cliente cliente = obtenerCliente(correoAutenticado);
 
-                                        Cliente cliente = clienteRepository.findById(clienteId)
-                                                        .orElseThrow(() -> new RuntimeException(
-                                                                        "Cliente no encontrado"));
+        // Si no tiene carrito aún devuelve uno vacío (sin crear nada en BD)
+        return carritoRepository.findByClienteIdWithItems(cliente.getIdcliente())
+                .map(this::toDTO)
+                .orElse(carritoVacio());
+    }
 
-                                        Carrito nuevoCarrito = Carrito.builder()
-                                                        .cliente(cliente)
-                                                        .fechacreacion(LocalDateTime.now())
-                                                        .items(new java.util.ArrayList<>())
-                                                        .build();
-
-                                        return carritoRepository.save(nuevoCarrito);
-                                });
-                Producto producto = productoRepository.findById(productoId)
-                                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
-
-                // Verificar si el producto ya existe en el carrito
-                CarritoDetalle itemExistente = carrito.getItems().stream()
-                                .filter(item -> item.getProducto().getIdproducto().equals(productoId))
-                                .findFirst()
-                                .orElse(null);
-
-                if (itemExistente != null) {
-                        // Aumentar cantidad
-                        itemExistente.setCantidad(itemExistente.getCantidad() + cantidad);
-                } else {
-                        // Crear nuevo item
-                        CarritoDetalle nuevoItem = CarritoDetalle.builder()
-                                        .carrito(carrito)
-                                        .producto(producto)
-                                        .cantidad(cantidad)
-                                        .build();
-                        carrito.getItems().add(nuevoItem);
-                }
-
-                carritoRepository.save(carrito);
-                return convertirACarritoResponseDTO(carrito);
+    // ── 2. AGREGAR PRODUCTO (upsert) ──────────────────────────────────────────
+    @Override
+    @Transactional
+    public CarritoResponseDTO agregarProducto(AgregarCarritoDTO dto, String correoAutenticado) {
+        if (dto.getCantidad() == null || dto.getCantidad() < 1) {
+            throw new RuntimeException("La cantidad debe ser mayor a 0");
         }
 
-        @Override
-        @Transactional
-        public CarritoResponseDTO cambiarCantidad(UUID clienteId, UUID productoId, Integer nuevaCantidad) {
-                Carrito carrito = carritoRepository.findByClienteIdWithItems(clienteId)
-                                .orElseThrow(() -> new RuntimeException("Carrito no encontrado"));
+        Cliente cliente  = obtenerCliente(correoAutenticado);
+        Producto producto = productoRepository.findById(dto.getProductoid())
+                .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado"));
 
-                CarritoDetalle item = carrito.getItems().stream()
-                                .filter(i -> i.getProducto().getIdproducto().equals(productoId))
-                                .findFirst()
-                                .orElseThrow(() -> new RuntimeException("Producto no encontrado en el carrito"));
-
-                item.setCantidad(nuevaCantidad);
-                carritoRepository.save(carrito);
-                return convertirACarritoResponseDTO(carrito);
+        if (producto.getStock() < dto.getCantidad()) {
+            throw new RuntimeException("Stock insuficiente para: " + producto.getNombre());
         }
 
-        @Override
-        @Transactional
-        public CarritoResponseDTO eliminarProducto(UUID clienteId, UUID productoId) {
-                Carrito carrito = carritoRepository.findByClienteIdWithItems(clienteId)
-                                .orElseThrow(() -> new RuntimeException("Carrito no encontrado"));
-
-                carrito.getItems().removeIf(item -> item.getProducto().getIdproducto().equals(productoId));
-                carritoRepository.save(carrito);
-                return convertirACarritoResponseDTO(carrito);
-        }
-
-        @Override
-        @Transactional
-        public CarritoResponseDTO obtenerCarrito(UUID clienteId) {
-                Carrito carrito = carritoRepository.findByClienteIdWithItems(clienteId)
-                                .orElseGet(() -> {
-                                        // Crear carrito vacío si no existe
-                                        Cliente cliente = clienteRepository.findById(clienteId)
-                                                        .orElseThrow(() -> new RuntimeException(
-                                                                        "Cliente no encontrado"));
-                                        Carrito nuevo = Carrito.builder().cliente(cliente)
-                                                        .fechacreacion(LocalDateTime.now()).build();
-                                        return carritoRepository.save(nuevo);
-                                });
-
-                return convertirACarritoResponseDTO(carrito);
-        }
-
-        @Override
-        @Transactional
-        public void vaciarCarrito(UUID clienteId) {
-
-                carritoRepository.findByClienteIdWithItems(clienteId).ifPresent(carrito -> {
-                        carrito.getItems().clear();
-                        carritoRepository.save(carrito);
+        // Obtener o crear el carrito del cliente
+        Carrito carrito = carritoRepository.findByCliente_Idcliente(cliente.getIdcliente())
+                .orElseGet(() -> {
+                    Carrito nuevo = Carrito.builder().cliente(cliente).build();
+                    return carritoRepository.save(nuevo);
                 });
+
+        // Upsert: si el producto ya está en el carrito → suma cantidad
+        carritoItemRepository
+                .findByCarrito_IdcarritoAndProducto_Idproducto(carrito.getIdcarrito(), dto.getProductoid())
+                .ifPresentOrElse(
+                        item -> {
+                            int nuevaCantidad = item.getCantidad() + dto.getCantidad();
+                            if (producto.getStock() < nuevaCantidad) {
+                                throw new RuntimeException("Stock insuficiente");
+                            }
+                            item.setCantidad(nuevaCantidad);
+                            carritoItemRepository.save(item);
+                        },
+                        () -> carritoItemRepository.save(CarritoItem.builder()
+                                .carrito(carrito)
+                                .producto(producto)
+                                .cantidad(dto.getCantidad())
+                                .build())
+                );
+
+        return toDTO(carritoRepository.findByClienteIdWithItems(cliente.getIdcliente()).orElse(carrito));
+    }
+
+    // ── 3. ACTUALIZAR CANTIDAD DE UN ITEM ─────────────────────────────────────
+    @Override
+    @Transactional
+    public CarritoResponseDTO actualizarItem(UUID itemid, ActualizarItemDTO dto, String correoAutenticado) {
+        Cliente cliente = obtenerCliente(correoAutenticado);
+        CarritoItem item = carritoItemRepository.findById(itemid)
+                .orElseThrow(() -> new ResourceNotFoundException("Item no encontrado"));
+
+        // Verificar que el item pertenece al carrito del cliente autenticado
+        if (!item.getCarrito().getCliente().getIdcliente().equals(cliente.getIdcliente())) {
+            throw new RuntimeException("No tienes permiso para modificar este item");
         }
 
-        // Método privado para convertir entidad a DTO
-
-        private CarritoResponseDTO convertirACarritoResponseDTO(Carrito carrito) {
-                List<CarritoItemDTO> itemsDTO = carrito.getItems().stream()
-                                .map(item -> {
-                                        Producto p = item.getProducto();
-                                        BigDecimal subtotal = p.getPreciodesct()
-                                                        .multiply(BigDecimal.valueOf(item.getCantidad()));
-                                        return CarritoItemDTO.builder()
-                                                        .iddetalle(item.getIddetalle())
-                                                        .productoid(p.getIdproducto())
-                                                        .nombre(p.getNombre())
-                                                        .marca(p.getMarca())
-                                                        .imgurl(p.getImgurl())
-                                                        .preciodesct(p.getPreciodesct())
-                                                        .cantidad(item.getCantidad())
-                                                        .subtotal(subtotal)
-                                                        .build();
-                                })
-                                .collect(Collectors.toList());
-
-                BigDecimal total = itemsDTO.stream()
-                                .map(CarritoItemDTO::getSubtotal)
-                                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-                return CarritoResponseDTO.builder()
-                                .idcarrito(carrito.getIdcarrito())
-                                .fechacreacion(carrito.getFechacreacion())
-                                .items(itemsDTO)
-                                .total(total)
-                                .build();
+        if (dto.getCantidad() == null || dto.getCantidad() < 1) {
+            // Si la cantidad es 0 o menos → eliminar el item
+            carritoItemRepository.delete(item);
+        } else {
+            if (item.getProducto().getStock() < dto.getCantidad()) {
+                throw new RuntimeException("Stock insuficiente");
+            }
+            item.setCantidad(dto.getCantidad());
+            carritoItemRepository.save(item);
         }
+
+        return toDTO(carritoRepository.findByClienteIdWithItems(cliente.getIdcliente())
+                .orElseThrow(() -> new ResourceNotFoundException("Carrito no encontrado")));
+    }
+
+    // ── 4. ELIMINAR ITEM ──────────────────────────────────────────────────────
+    @Override
+    @Transactional
+    public CarritoResponseDTO eliminarItem(UUID itemid, String correoAutenticado) {
+        Cliente cliente = obtenerCliente(correoAutenticado);
+        CarritoItem item = carritoItemRepository.findById(itemid)
+                .orElseThrow(() -> new ResourceNotFoundException("Item no encontrado"));
+
+        if (!item.getCarrito().getCliente().getIdcliente().equals(cliente.getIdcliente())) {
+            throw new RuntimeException("No tienes permiso para eliminar este item");
+        }
+
+        carritoItemRepository.delete(item);
+
+        return carritoRepository.findByClienteIdWithItems(cliente.getIdcliente())
+                .map(this::toDTO)
+                .orElse(carritoVacio());
+    }
+
+    // ── 5. VACIAR CARRITO ─────────────────────────────────────────────────────
+    @Override
+    @Transactional
+    public void vaciar(String correoAutenticado) {
+        Cliente cliente = obtenerCliente(correoAutenticado);
+        carritoRepository.findByCliente_Idcliente(cliente.getIdcliente())
+                .ifPresent(carrito ->
+                        carritoItemRepository.deleteAllByCarrito_Idcarrito(carrito.getIdcarrito()));
+    }
+
+    // ── HELPERS ───────────────────────────────────────────────────────────────
+
+    private Cliente obtenerCliente(String correo) {
+        return clienteRepository.findByCorreo(correo)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+    }
+
+    private CarritoResponseDTO carritoVacio() {
+        return CarritoResponseDTO.builder()
+                .items(List.of())
+                .total(BigDecimal.ZERO)
+                .cantidadProductos(0)
+                .build();
+    }
+
+    private CarritoResponseDTO toDTO(Carrito carrito) {
+        List<CarritoItemResponseDTO> items = (carrito.getItems() == null ? List.<CarritoItem>of() : carrito.getItems())
+                .stream()
+                .map(item -> {
+                    Producto p = item.getProducto();
+                    BigDecimal preciodesct = p.getPreciodesct() != null ? p.getPreciodesct() : p.getPrecio();
+                    BigDecimal subtotal = preciodesct.multiply(new BigDecimal(item.getCantidad()));
+                    return CarritoItemResponseDTO.builder()
+                            .iditem(item.getIditem())
+                            .productoid(p.getIdproducto())
+                            .nombre(p.getNombre())
+                            .marca(p.getMarca())
+                            .imgurl(p.getImgurl())
+                            .precioUnitario(p.getPrecio())
+                            .preciodesct(preciodesct)
+                            .descuento(p.getDescuento())
+                            .cantidad(item.getCantidad())
+                            .subtotal(subtotal)
+                            .stockDisponible(p.getStock())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        BigDecimal total = items.stream()
+                .map(CarritoItemResponseDTO::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        int cantidadProductos = items.stream()
+                .mapToInt(CarritoItemResponseDTO::getCantidad)
+                .sum();
+
+        return CarritoResponseDTO.builder()
+                .idcarrito(carrito.getIdcarrito())
+                .fechacreacion(carrito.getFechacreacion())
+                .items(items)
+                .total(total)
+                .cantidadProductos(cantidadProductos)
+                .build();
+    }
 }

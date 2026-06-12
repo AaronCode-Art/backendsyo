@@ -1,26 +1,23 @@
 package com.ecomerce.syo.controller;
 
-import com.ecomerce.syo.dto.carrito.CarritoResponseDTO;
+import com.ecomerce.syo.dto.carrito.*;
 import com.ecomerce.syo.services.CarritoService;
-import com.ecomerce.syo.repository.ClienteRepository;
 import lombok.RequiredArgsConstructor;
-import com.ecomerce.syo.model.Cliente;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 /**
- * CarritoController - Controlador del carrito de compras
- * 
- * Permite a los usuarios autenticados:
- * - Ver su carrito
- * - Agregar productos
- * - Cambiar cantidad
- * - Eliminar productos
- * - Vaciar el carrito
+ * CarritoController - Gestión del carrito de compras.
+ * Todos los endpoints son protegidos (requieren JWT).
+ *
+ * GET    /api/carrito              → obtener carrito del cliente
+ * POST   /api/carrito/agregar      → agregar producto (upsert)
+ * PUT    /api/carrito/item/{id}    → actualizar cantidad de un item
+ * DELETE /api/carrito/item/{id}    → eliminar un item
+ * DELETE /api/carrito              → vaciar todo el carrito
  */
 @RestController
 @RequestMapping("/api/carrito")
@@ -28,98 +25,36 @@ import java.util.UUID;
 public class CarritoController {
 
     private final CarritoService carritoService;
-    private final ClienteRepository clienteRepository;
 
-    /**
-     * Obtiene el carrito completo del usuario logueado
-     * GET http://localhost:8080/api/carrito
-     */
+    private String correo() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
+    }
+
     @GetMapping
     public ResponseEntity<CarritoResponseDTO> obtenerCarrito() {
-        UUID clienteId = obtenerClienteIdActual();
-        CarritoResponseDTO carrito = carritoService.obtenerCarrito(clienteId);
-        return ResponseEntity.ok(carrito);
+        return ResponseEntity.ok(carritoService.obtenerCarrito(correo()));
     }
 
-    /**
-     * Agrega un producto al carrito (o aumenta la cantidad si ya existe)
-     * POST http://localhost:8080/api/carrito/agregar?productoId=xxx&cantidad=1
-     */
     @PostMapping("/agregar")
-    public ResponseEntity<CarritoResponseDTO> agregarProducto(
-            @RequestParam UUID productoId,
-            @RequestParam(defaultValue = "1") Integer cantidad) {
-
-        UUID clienteId = obtenerClienteIdActual();
-        CarritoResponseDTO carrito = carritoService.agregarProducto(clienteId, productoId, cantidad);
-        return ResponseEntity.ok(carrito);
+    public ResponseEntity<CarritoResponseDTO> agregar(@RequestBody AgregarCarritoDTO dto) {
+        return ResponseEntity.ok(carritoService.agregarProducto(dto, correo()));
     }
 
-    /**
-     * Cambia la cantidad de un producto en el carrito
-     * PUT http://localhost:8080/api/carrito/cantidad?productoId=xxx&cantidad=3
-     */
-    @PutMapping("/cantidad")
-    public ResponseEntity<CarritoResponseDTO> cambiarCantidad(
-            @RequestParam UUID productoId,
-            @RequestParam Integer cantidad) {
-
-        UUID clienteId = obtenerClienteIdActual();
-        CarritoResponseDTO carrito = carritoService.cambiarCantidad(clienteId, productoId, cantidad);
-        return ResponseEntity.ok(carrito);
+    @PutMapping("/item/{itemid}")
+    public ResponseEntity<CarritoResponseDTO> actualizarItem(
+            @PathVariable UUID itemid,
+            @RequestBody ActualizarItemDTO dto) {
+        return ResponseEntity.ok(carritoService.actualizarItem(itemid, dto, correo()));
     }
 
-    /**
-     * Elimina un producto específico del carrito
-     * DELETE http://localhost:8080/api/carrito/{productoId}
-     */
-    @DeleteMapping("/{productoId}")
-    public ResponseEntity<CarritoResponseDTO> eliminarProducto(@PathVariable UUID productoId) {
-        UUID clienteId = obtenerClienteIdActual();
-        CarritoResponseDTO carrito = carritoService.eliminarProducto(clienteId, productoId);
-        return ResponseEntity.ok(carrito);
+    @DeleteMapping("/item/{itemid}")
+    public ResponseEntity<CarritoResponseDTO> eliminarItem(@PathVariable UUID itemid) {
+        return ResponseEntity.ok(carritoService.eliminarItem(itemid, correo()));
     }
 
-    /**
-     * Vacía todo el carrito
-     * DELETE http://localhost:8080/api/carrito
-     */
     @DeleteMapping
-    public ResponseEntity<Void> vaciarCarrito() {
-        UUID clienteId = obtenerClienteIdActual();
-        carritoService.vaciarCarrito(clienteId);
+    public ResponseEntity<Void> vaciar() {
+        carritoService.vaciar(correo());
         return ResponseEntity.noContent().build();
     }
-
-    /**
-     * Obtiene el ID del cliente actual a partir del token JWT
-     */
-    private UUID obtenerClienteIdActual() {
-
-    var auth = SecurityContextHolder
-            .getContext()
-            .getAuthentication();
-
-    if (
-        auth == null ||
-        !auth.isAuthenticated() ||
-        auth.getName().equals("anonymousUser")
-    ) {
-
-        throw new AuthenticationCredentialsNotFoundException(
-            "Usuario no autenticado"
-        );
-    }
-
-    String email = auth.getName();
-
-    return clienteRepository
-            .findByCorreo(email)
-            .map(Cliente::getIdcliente)
-            .orElseThrow(() ->
-                new RuntimeException(
-                    "Cliente no encontrado con email: " + email
-                )
-            );
-}
 }

@@ -22,5 +22,11 @@ public class AuthResponseDTO {
     private UUID idcliente;
     private String nombre;
     private String apellido;
+    private String dni;
+    private String numero;
+    private String direccion;
+    private String referencia;
+    private String distrito;
+    private String codigopostal;
     private String correo;
 }

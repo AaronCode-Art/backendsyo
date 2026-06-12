@@ -44,6 +44,12 @@ public class ClienteController {
                 .idcliente(cliente.getIdcliente())
                 .nombre(cliente.getNombre())
                 .apellido(cliente.getApellido())
+                .dni(cliente.getDni())
+                .numero(cliente.getNumero())
+                .direccion(cliente.getDireccion())
+                .referencia(cliente.getReferencia())
+                .distrito(cliente.getDistrito())
+                .codigopostal(cliente.getCodigopostal())
                 .correo(cliente.getCorreo())
                 .build();
 

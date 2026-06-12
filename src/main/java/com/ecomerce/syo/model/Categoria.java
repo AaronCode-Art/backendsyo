@@ -27,4 +27,5 @@ public class Categoria {
 
     @Column(name = "imgurl", columnDefinition = "TEXT")
     private String imgurl;
+    
 }

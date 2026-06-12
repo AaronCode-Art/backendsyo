@@ -1,41 +1,23 @@
 package com.ecomerce.syo.services;
 
-import com.ecomerce.syo.dto.pedido.PedidoResponseDTO;
+import com.ecomerce.syo.dto.pedido.ConfirmarPedidoDTO;
+import com.ecomerce.syo.dto.pedido.PedidoDetalleDTO;
+import com.ecomerce.syo.dto.pedido.PedidoResumenDTO;
+
 import java.util.List;
 import java.util.UUID;
 
 /**
- * Servicio de Pedidos - Versión final y limpia
+ * PedidoService - Operaciones de pedidos.
+ *
+ * confirmarPedido  → lee el carrito, crea el pedido+detalles+pago, vacía el carrito
+ * misPedidos       → todos los pedidos del cliente autenticado
+ * obtenerDetalle   → detalle completo de un pedido (items + historial + pago)
+ * pedidosPorEstado → filtrar pedidos del cliente por estado
  */
 public interface PedidoService {
-
-    /**
-     * Crea un pedido desde el carrito del cliente
-     */
-    PedidoResponseDTO crearPedidoDesdeCarrito(UUID clienteId, String tipoEntrega, String tipoComprobante);
-
-    /**
-     * Lista todos los pedidos de un cliente
-     */
-    List<PedidoResponseDTO> obtenerPorCliente(UUID clienteId);
-
-    /**
-     * Lista los pedidos por estado (PENDIENTE, CONFIRMADO, ENVIADO, etc.)
-     */
-    List<PedidoResponseDTO> obtenerPorEstado(UUID estadoId);
-
-    /**
-     * Detalle completo de un pedido
-     */
-    PedidoResponseDTO obtenerDetalle(UUID pedidoId);
-
-    /**
-     * Cambia el estado de un pedido
-     */
-    PedidoResponseDTO cambiarEstado(UUID pedidoId, UUID nuevoEstadoId);
-
-    /**
-     * Cancela un pedido
-     */
-    PedidoResponseDTO cancelarPedido(UUID pedidoId);
+    PedidoDetalleDTO confirmarPedido(ConfirmarPedidoDTO dto, String correoAutenticado);
+    List<PedidoResumenDTO> misPedidos(String correoAutenticado);
+    PedidoDetalleDTO obtenerDetalle(UUID pedidoid, String correoAutenticado);
+    List<PedidoResumenDTO> pedidosPorEstado(String estado, String correoAutenticado);
 }
